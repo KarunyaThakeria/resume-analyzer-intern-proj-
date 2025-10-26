@@ -115,7 +115,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
             },
         });
     };
-
+/*
     const checkAuthStatus = async (): Promise<boolean> => {
         const puter = getPuter();
         if (!puter) {
@@ -164,7 +164,119 @@ export const usePuterStore = create<PuterStore>((set, get) => {
             return false;
         }
     };
+*/
+    // ✅ Check whether user is signed in (and refresh state safely)
+    const checkAuthStatus = async (): Promise<boolean> => {
+        const puter = getPuter();
+        if (!puter) {
+            setError("Puter.js not available");
+            return false;
+        }
 
+        set({ isLoading: true, error: null });
+
+        try {
+            const isSignedIn = await puter.auth.isSignedIn();
+
+            if (isSignedIn) {
+                const user = await puter.auth.getUser();
+
+                // validate user object before trusting login
+                if (!user) {
+                    set({
+                        auth: {
+                            ...get().auth,
+                            user: null,
+                            isAuthenticated: false,
+                        },
+                        isLoading: false,
+                    });
+                    return false;
+                }
+
+                set({
+                    auth: {
+                        ...get().auth,
+                        user,
+                        isAuthenticated: true,
+                    },
+                    isLoading: false,
+                });
+                return true;
+            } else {
+                set({
+                    auth: {
+                        ...get().auth,
+                        user: null,
+                        isAuthenticated: false,
+                    },
+                    isLoading: false,
+                });
+                return false;
+            }
+        } catch (err) {
+            const msg =
+                err instanceof Error ? err.message : "Failed to check auth status";
+            setError(msg);
+            return false;
+        }
+    };
+
+// ✅ Proper sign-out that clears session
+    const signOut = async (): Promise<void> => {
+        const puter = getPuter();
+        if (!puter) {
+            setError("Puter.js not available");
+            return;
+        }
+
+        set({ isLoading: true, error: null });
+
+        try {
+            await puter.auth.signOut();
+            set({
+                auth: {
+                    ...get().auth,
+                    user: null,
+                    isAuthenticated: false,
+                },
+                isLoading: false,
+            });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : "Sign out failed";
+            setError(msg);
+        }
+    };
+
+// ✅ Init only checks auth once per app load (persistent login)
+    const init = async (): Promise<void> => {
+        const puter = getPuter();
+        set({ isLoading: true, error: null, puterReady: false });
+
+        if (puter) {
+            set({ puterReady: true });
+            await checkAuthStatus(); // wait before UI continues
+            return;
+        }
+
+        const interval = setInterval(async () => {
+            if (getPuter()) {
+                clearInterval(interval);
+                set({ puterReady: true });
+                await checkAuthStatus();
+            }
+        }, 100);
+
+        setTimeout(() => {
+            clearInterval(interval);
+            if (!getPuter()) {
+                setError("Puter.js failed to load within 10 seconds");
+                set({ isLoading: false });
+            }
+        }, 10000);
+    };
+
+    //
     const signIn = async (): Promise<void> => {
         const puter = getPuter();
         if (!puter) {
@@ -183,7 +295,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
         }
     };
 
-    const signOut = async (): Promise<void> => {
+    /*const signOut = async (): Promise<void> => {
         const puter = getPuter();
         if (!puter) {
             setError("Puter.js not available");
@@ -211,7 +323,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
             setError(msg);
         }
     };
-
+*/
     const refreshUser = async (): Promise<void> => {
         const puter = getPuter();
         if (!puter) {
@@ -241,7 +353,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
         }
     };
 
-    const init = (): void => {
+    /*const init = (): void => {
         const puter = getPuter();
         if (puter) {
             set({ puterReady: true });
@@ -264,7 +376,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
             }
         }, 10000);
     };
-
+*/
     const write = async (path: string, data: string | File | Blob) => {
         const puter = getPuter();
         if (!puter) {
